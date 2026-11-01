@@ -7,6 +7,11 @@ T.Y.B.Sc. Computer Science project — Angad Dabholkar, ZSCT's Thakur Shyamnaray
 
 ---
 
+### 📲 Download Android App
+**[Download MediLink APK (v1.7.0)](https://github.com/angaddab1087-alt/MediLink-Final-app/releases/latest/download/MediLink.apk)** — Install directly on any Android phone (pre-configured with live cloud backend).
+
+---
+
 ## What is inside
 
 | Folder | What it is |
