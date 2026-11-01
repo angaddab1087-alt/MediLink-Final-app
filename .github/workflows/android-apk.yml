@@ -1,0 +1,47 @@
+# Builds the MediLink Android APK on GitHub's servers every time you push.
+# Download it from: GitHub repo -> Actions -> latest "Build Android APK" run -> Artifacts -> MediLink-apk
+# Optional: set a repository variable API_URL (Settings -> Secrets and variables -> Actions -> Variables),
+# e.g. https://your-server.example.com/api, so the app connects there by default.
+name: Build Android APK
+
+on:
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Install web dependencies
+        run: npm ci
+      - name: Build web app
+        run: npm run build
+        env:
+          API_URL: ${{ vars.API_URL }}
+      - name: Copy web app into Android project
+        run: npx cap sync android
+      - name: Build debug APK
+        working-directory: frontend/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk ../MediLink.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: MediLink-apk
+          path: MediLink.apk

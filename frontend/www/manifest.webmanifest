@@ -1,0 +1,10 @@
+{
+  "name": "MediLink",
+  "short_name": "MediLink",
+  "description": "Register once, use at every hospital.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#F4F7FB",
+  "theme_color": "#06303a",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+uploads/
+.env
+*.log
+frontend/android/app/build/
+frontend/android/.gradle/
+frontend/android/build/
+frontend/android/local.properties
+frontend/android/app/src/main/assets/public/
+.DS_Store

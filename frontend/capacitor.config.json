@@ -1,0 +1,7 @@
+{
+  "appId": "in.medilink.app",
+  "appName": "MediLink",
+  "webDir": "dist",
+  "android": { "allowMixedContent": true },
+  "server": { "androidScheme": "http", "cleartext": true }
+}

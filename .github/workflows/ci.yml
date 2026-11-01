@@ -1,0 +1,58 @@
+# Checks that the backend and app compile, and runs the backend tests against a real PostgreSQL.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: medilink
+          POSTGRES_PASSWORD: medilink
+          POSTGRES_DB: medilink
+        ports: ['5432:5432']
+        options: --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      DATABASE_URL: postgres://medilink:medilink@localhost:5432/medilink
+      JWT_SECRET: ci-secret
+      QR_SECRET: ci-qr-secret
+      DEMO_MODE: "true"
+      AUTH_RATE_LIMIT_PER_MINUTE: "60"
+      RATE_LIMIT_PER_MINUTE: "1000"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: backend/package-lock.json }
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+      - run: npm audit --omit=dev --audit-level=high
+      - run: node dist/db/migrate.js && node dist/db/seed.js
+      - name: Smoke test, then attack tests (a minute apart so rate limits reset)
+        run: |
+          (node dist/main.js > api.log 2>&1 &)
+          for i in $(seq 30); do curl -sf localhost:4000/api/health > /dev/null && break; sleep 1; done
+          node scripts/smoke-test.mjs
+          sleep 62
+          node scripts/security-test.mjs
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm, cache-dependency-path: frontend/package-lock.json }
+      - run: npm ci
+      - run: npm audit --omit=dev --audit-level=high
+      - run: npm run check
+      - run: npm run build
