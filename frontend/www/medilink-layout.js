@@ -30,10 +30,12 @@
   // Layout dynamically responds to screen size by default
   state.layout = (typeof window !== 'undefined' && window.innerWidth) ? getAutoLayout() : (store.get() || 'phone');
 
+  const isNative = () => !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   const DESKTOP_ONLY = ['admin', 'owner'];
   const canDesktop = () => true;
-  const canChoose = () => true;
+  const canChoose = () => !isNative();
   const effective = () => {
+    if (isNative()) return 'phone';
     // Truly dynamic to screen size: if screen is desktop width, render desktop. If phone width, render phone.
     if (typeof window !== 'undefined' && window.innerWidth) {
       if (window.innerWidth < 768) return 'phone';
@@ -311,7 +313,7 @@
   /* ---------- phone <-> desktop toggle in the top bar ---------- */
   function renderToggle(show) {
     const old = document.getElementById('ml-layout-btn');
-    if (!show) { if (old) old.remove(); return; }
+    if (!show || isNative()) { if (old) old.remove(); return; }
     const desktop = effective() === 'desktop';
     const label = desktop ? 'Switch to phone view' : 'Switch to desktop view';
     const icon = desktop ? 'smartphone' : 'monitor';

@@ -44,8 +44,12 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.autofocus" android:required="false" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
 
     <!-- Lets the app find Android's speech recogniser (voice-to-text) on Android 11+ -->
     <queries>
@@ -53,6 +57,4 @@
             <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
-    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
-
 </manifest>

@@ -3,6 +3,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>MediLink — Hospital Registration, Referral &amp; Emergency Platform</title>
+  <script src="capacitor.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdn.jsdelivr.net/npm/lucide@0.469.0/dist/umd/lucide.min.js" crossorigin="anonymous"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" crossorigin="anonymous"></script>
@@ -2328,9 +2329,11 @@
           container.innerHTML = renderSignup8();
           break;
         case 'emergency_home':
+          if (window.MediLinkDevice && MediLinkDevice.syncLocation) MediLinkDevice.syncLocation();
           container.innerHTML = renderEmergencyHome();
           break;
         case 'emergency_map':
+          if (window.MediLinkDevice && MediLinkDevice.syncLocation) MediLinkDevice.syncLocation();
           container.innerHTML = renderEmergencyMap();
           setTimeout(initEmergencyLeafletMap, 60);
           break;
@@ -4876,8 +4879,25 @@
     }
 
     function renderEmergencyMap() {
+      const uLat = (state.userLoc && state.userLoc.lat);
+      const uLng = (state.userLoc && state.userLoc.lng);
+
+      if (uLat && uLng) {
+        HOSPITALS.forEach(h => {
+          const R = 6371;
+          const dLat = (h.lat - uLat) * Math.PI / 180;
+          const dLng = (h.lng - uLng) * Math.PI / 180;
+          const a = Math.sin(dLat / 2) ** 2 + Math.cos(uLat * Math.PI / 180) * Math.cos(h.lat * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+          h._dist = Math.round(2 * R * Math.asin(Math.sqrt(a)) * 10) / 10;
+        });
+      }
+
       const filtered = HOSPITALS.filter(h => state.emergencyFilter === 'all' || h.type === state.emergencyFilter);
+      if (uLat && uLng) {
+        filtered.sort((a, b) => (a._dist ?? 999) - (b._dist ?? 999));
+      }
       const selected = filtered.find(h => h.id === state.selectedEmergencyHospId) || filtered[0];
+      const distInfo = selected._dist != null ? `${selected.area} • ${selected._dist} km • ${Math.max(2, Math.round(selected._dist * 3.2))} mins` : `${selected.area} • 1.8 km • 6 mins`;
 
       return `
         <div class="flex-1 flex flex-col justify-between space-y-3">
@@ -4898,7 +4918,7 @@
             <div class="flex items-start justify-between gap-2">
               <div>
                 <div class="text-t2">${selected.name}</div>
-                <div class="text-meta text-slate-500">${selected.area} • 1.8 km • 6 mins</div>
+                <div class="text-meta text-slate-500">${distInfo}</div>
               </div>
               <span class="px-2 py-0.5 rounded-md bg-slate-100 text-meta capitalize">${selected.type}</span>
             </div>
@@ -4907,7 +4927,7 @@
             <div class="flex gap-1.5 overflow-x-auto no-scrollbar pt-1">
               ${filtered.map(h => `
                 <button onclick="state.selectedEmergencyHospId='${h.id}'; state.emergencyInformed=false; render()" class="px-3 py-1.5 rounded-xl text-meta shrink-0 ${h.id === selected.id ? 'bg-brand text-white font-semibold' : 'bg-slate-100 text-slate-700'}">
-                  ${h.name.split(' ')[0]}
+                  ${h.name.split(' ')[0]}${h._dist != null ? ` (${h._dist}km)` : ''}
                 </button>
               `).join('')}
             </div>
@@ -4915,7 +4935,7 @@
 
           <div class="space-y-2">
             <div class="grid grid-cols-2 gap-2">
-              <a href="https://www.google.com/maps/dir/?api=1&destination=${selected.lat},${selected.lng}" target="_blank" rel="noopener" class="btn-primary-56 bg-emergency text-white font-semibold flex items-center justify-center gap-2">
+              <a href="https://www.google.com/maps/dir/?api=1&origin=${uLat || 19.1180},${uLng || 72.8310}&destination=${selected.lat},${selected.lng}" target="_blank" rel="noopener" class="btn-primary-56 bg-emergency text-white font-semibold flex items-center justify-center gap-2">
                 <i data-lucide="navigation" class="w-5 h-5"></i>
                 <span>Navigate</span>
               </a>
@@ -4929,7 +4949,7 @@
             ${selected.is_medilink ? `
               <button onclick="informHospitalComing('${selected.name}')" class="btn-touch-48 w-full bg-brand-light text-brand font-semibold text-body flex items-center justify-center gap-2">
                 <i data-lucide="bell-ring" class="w-5 h-5"></i>
-                <span>${state.emergencyInformed ? 'Hospital Staff Notified (ETA 6m)' : "Inform hospital I'm coming"}</span>
+                <span>${state.emergencyInformed ? 'Hospital Staff Notified' : "Inform hospital I'm coming"}</span>
               </button>
             ` : ''}
 
@@ -4948,17 +4968,23 @@
         leafletMap.remove();
         leafletMap = null;
       }
+      const uLat = (state.userLoc && state.userLoc.lat);
+      const uLng = (state.userLoc && state.userLoc.lng);
       const filtered = HOSPITALS.filter(h => state.emergencyFilter === 'all' || h.type === state.emergencyFilter);
+      if (uLat && uLng) {
+        filtered.sort((a, b) => (a._dist ?? 999) - (b._dist ?? 999));
+      }
       const selected = filtered.find(h => h.id === state.selectedEmergencyHospId) || filtered[0];
-      const userLat = 19.1180, userLng = 72.8310; // Mumbai user position
+      const userLat = uLat || 19.1180;
+      const userLng = uLng || 72.8310;
 
-      leafletMap = L.map('emergency-map', { zoomControl: false }).setView([selected.lat, selected.lng], 12);
+      leafletMap = L.map('emergency-map', { zoomControl: false }).setView([selected.lat, selected.lng], 13);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap'
       }).addTo(leafletMap);
 
       // User marker
-      L.circleMarker([userLat, userLng], { radius: 7, color: '#0a6a74', fillColor: '#0a6a74', fillOpacity: 1 })
+      L.circleMarker([userLat, userLng], { radius: 8, color: '#0a6a74', fillColor: '#0a6a74', fillOpacity: 1 })
         .addTo(leafletMap).bindPopup('You are here');
 
       // Hospital markers
@@ -4969,7 +4995,7 @@
           color: '#DC2626',
           fillColor: '#DC2626',
           fillOpacity: isSel ? 1 : 0.7
-        }).addTo(leafletMap).bindPopup(h.name);
+        }).addTo(leafletMap).bindPopup(h.name + (h._dist != null ? ` (${h._dist} km)` : ''));
       });
 
       // Closest route polyline drawn in-app
@@ -4978,7 +5004,7 @@
         weight: 4,
         dashArray: '6, 6'
       }).addTo(leafletMap);
-      leafletMap.fitBounds(poly.getBounds(), { padding: [24, 24] });
+      leafletMap.fitBounds(poly.getBounds(), { padding: [28, 28] });
     }
 
     function informHospitalComing(hospName) {

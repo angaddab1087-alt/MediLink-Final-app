@@ -72,9 +72,9 @@
       navigator.geolocation.getCurrentPosition(resolve, reject, opts);
     });
 
-    // 1. High precision GPS lock (No stale cached positions: maximumAge: 0)
+    // 1. High precision GPS lock (accept fresh fix up to 60s old for immediate response)
     try {
-      const p = await getPos({ enableHighAccuracy: true, timeout: 6000, maximumAge: 0 });
+      const p = await getPos({ enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 });
       return {
         lat: p.coords.latitude,
         lng: p.coords.longitude,
@@ -86,7 +86,7 @@
     } catch (gpsErr) {
       // 2. Secondary quick cellular/WiFi network fix
       try {
-        const p2 = await getPos({ enableHighAccuracy: false, timeout: 3500, maximumAge: 5000 });
+        const p2 = await getPos({ enableHighAccuracy: false, timeout: 6000, maximumAge: 120000 });
         return {
           lat: p2.coords.latitude,
           lng: p2.coords.longitude,
@@ -129,17 +129,31 @@
    * 3. Emergency: Clean minimalist location (preserves Fig 5.10 specification)
    * ================================================================= */
 
-  // High-accuracy GPS updates state.userLoc quietly in background
-  if (typeof navigator !== 'undefined' && navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        if (typeof state !== 'undefined') {
-          state.userLoc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+  MD.syncLocation = function (cb) {
+    if (typeof MD.getLocation !== 'function') return;
+    MD.getLocation().then((loc) => {
+      if (loc && typeof state !== 'undefined') {
+        const prev = state.userLoc;
+        state.userLoc = { lat: loc.lat, lng: loc.lng, accuracy: loc.accuracy };
+        const changed = !prev || Math.abs(prev.lat - loc.lat) > 0.0001 || Math.abs(prev.lng - loc.lng) > 0.0001;
+        if (changed && typeof state.currentScreen === 'string' && state.currentScreen.startsWith('emergency_') && typeof render === 'function') {
+          render();
         }
-      },
-      () => {},
-      { enableHighAccuracy: true, timeout: 6000, maximumAge: 0 }
-    );
+        if (cb) cb(state.userLoc);
+      }
+    }).catch(() => {});
+  };
+
+  // Sync on startup and watch position for real-time tracking
+  MD.syncLocation();
+  if (typeof navigator !== 'undefined' && navigator.geolocation && navigator.geolocation.watchPosition) {
+    try {
+      navigator.geolocation.watchPosition((p) => {
+        if (p && p.coords && typeof state !== 'undefined') {
+          state.userLoc = { lat: p.coords.latitude, lng: p.coords.longitude, accuracy: p.coords.accuracy };
+        }
+      }, () => {}, { enableHighAccuracy: true, maximumAge: 30000 });
+    } catch (e) {}
   }
 
   /* =================================================================
